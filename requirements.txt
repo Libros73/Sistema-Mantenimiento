@@ -1,0 +1,6 @@
+Flask
+flask-sqlalchemy
+flask-login
+psycopg2-binary
+gunicorn
+reportlab
