@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GNB - Gestión de Activos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+    <div class="main-container">
+        <header class="dashboard-header">
+            <div class="logo-area">
+                <h1>🏢 GNB Sudameris</h1>
+                <p>Sistema de Gestión de Mantenimiento | Bosch/Fike</p>
+            </div>
+            <div class="user-info">
+                <span>Ingeniero de Servicio</span>
+            </div>
+        </header>
+
+        <div class="actions-bar">
+            <h2>Inventario de Dispositivos</h2>
+            <button class="btn-primary" onclick="abrirModal()">+ Agregar Equipo</button>
+        </div>
+
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre del Equipo</th>
+                        <th>Tipo</th>
+                        <th>Serial</th>
+                        <th>Ubicación</th>
+                        <th>Estado</th>
+                        <th>Observaciones</th> <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for equipo in equipos %}
+                    <tr>
+                        <td>#{{ equipo.id }}</td>
+                        <td><strong>{{ equipo.nombre }}</strong></td>
+                        <td>{{ equipo.tipo }}</td>
+                        <td><code>{{ equipo.serial }}</code></td>
+                        <td>{{ equipo.ubicacion }}</td>
+                        <td>
+                            <span class="status-badge {{ 'status-ok' if equipo.estado == 'Operativo' else 'status-fail' }}">
+                                {{ equipo.estado }}
+                            </span>
+                        </td>
+                        <td>
+    <small style="color: #555; font-style: italic;">
+        {{ equipo.observaciones if equipo.observaciones else '---' }}
+    </small>
+</td>
+                        <td>
+                            <button class="btn-small">✏️</button>
+                            <button class="btn-small btn-danger">🗑️</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" style="text-align: center;">No hay equipos registrados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+<div id="modalAgregar" class="modal-overlay">
+        <div class="modal-box">
+            <h3>🔌 Nuevo Dispositivo</h3>
+            
+            <div class="form-group">
+                <label>Nombre del Equipo:</label>
+                <input type="text" id="inpNombre" placeholder="Ej: Sensor Humo Sala Juntas">
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tipo:</label>
+                    <select id="inpTipo">
+                        <option value="Sensor Humo">Sensor Humo</option>
+                        <option value="Panel Control">Panel Control</option>
+                        <option value="Estación Manual">Estación Manual</option>
+                        <option value="Sirena/Estrobo">Sirena/Estrobo</option>
+                        <option value="Módulo Control">Módulo Control</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Serial (Único):</label>
+                    <input type="text" id="inpSerial" placeholder="Ej: SN-2024-X">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Ubicación:</label>
+                <input type="text" id="inpUbicacion" placeholder="Ej: Torre B - Piso 5">
+            </div>
+
+            <div class="form-group">
+                <label>Observaciones:</label>
+                <textarea id="inpObservaciones" rows="3" placeholder="Estado inicial, notas de instalación..."></textarea>
+            </div>
+
+            <div class="modal-actions">
+                <button onclick="cerrarModal()" class="btn-secondary">Cancelar</button>
+                <button onclick="guardarEquipo()" class="btn-primary">Guardar Equipo</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const modal = document.getElementById('modalAgregar');
+
+        // Funciones para abrir/cerrar
+        function abrirModal() { modal.style.display = 'flex'; }
+        function cerrarModal() { modal.style.display = 'none'; }
+
+        // Función para ENVIAR datos a Python
+        function guardarEquipo() {
+            const datos = {
+                nombre: document.getElementById('inpNombre').value,
+                tipo: document.getElementById('inpTipo').value,
+                serial: document.getElementById('inpSerial').value,
+                ubicacion: document.getElementById('inpUbicacion').value,
+                observaciones: document.getElementById('inpObservaciones').value
+            };
+
+            // Validación rápida
+            if(!datos.nombre || !datos.serial) {
+                alert("⚠️ Por favor completa Nombre y Serial.");
+                return;
+            }
+
+            // Petición al Backend
+            fetch('/api/equipos', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(datos)
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.mensaje);
+                location.reload(); // Recargar página para ver el nuevo equipo
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
