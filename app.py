@@ -2,6 +2,12 @@ from flask import Flask, render_template, request, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin
 import os
+# --- NUEVOS IMPORTS PARA PDF ---
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib import colors
+import io
+from flask import send_file
 
 # --- 1. CONFIGURACIÓN ---
 app = Flask(__name__)
@@ -154,6 +160,70 @@ def eliminar_equipo(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"mensaje": "Error al eliminar"}), 500
+    
+# RUTA PARA GENERAR PDF
+@app.route('/exportar-pdf')
+def exportar_pdf():
+    # 1. Crear un buffer en memoria (como un archivo virtual)
+    buffer = io.BytesIO()
+    
+    # 2. Crear el Lienzo (Canvas) tamaño Carta
+    c = canvas.Canvas(buffer, pagesize=letter)
+    c.setTitle("Reporte de Mantenimiento GNB")
+
+    # 3. Dibujar el Encabezado
+    # (Coordenadas X, Y): En PDF, (0,0) es la esquina INFERIOR izquierda.
+    c.setFont("Helvetica-Bold", 18)
+    c.drawString(50, 750, "GNB Sudameris - Reporte de Activos")
+    
+    c.setFont("Helvetica", 12)
+    c.drawString(50, 730, "Sistema de Gestión de Mantenimiento | Bosch/Fike")
+    
+    # Línea separadora
+    c.line(50, 720, 550, 720)
+
+    # 4. Dibujar los Equipos (Iterar la Base de Datos)
+    y = 690 # Altura inicial para el primer equipo
+    equipos = Equipo.query.all()
+
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(50, y, "ID")
+    c.drawString(100, y, "Equipo")
+    c.drawString(280, y, "Serial")
+    c.drawString(380, y, "Ubicación")
+    c.drawString(500, y, "Estado")
+    
+    y -= 20 # Bajamos un renglón
+    c.setFont("Helvetica", 10)
+
+    for equipo in equipos:
+        # Si se acaba la hoja, creamos una nueva (lógica de paginación básica)
+        if y < 50:
+            c.showPage()
+            y = 750
+        
+        c.drawString(50, y, str(equipo.id))
+        c.drawString(100, y, equipo.nombre[:30]) # Cortamos si es muy largo
+        c.drawString(280, y, equipo.serial)
+        c.drawString(380, y, equipo.ubicacion[:20])
+        
+        # Color condicional: Rojo si está en Falla
+        if equipo.estado == "Falla":
+            c.setFillColor(colors.red)
+        else:
+            c.setFillColor(colors.black)
+            
+        c.drawString(500, y, equipo.estado)
+        c.setFillColor(colors.black) # Resetear color
+        
+        y -= 20 # Siguiente renglón
+
+    # 5. Guardar y Cerrar
+    c.save()
+    buffer.seek(0)
+
+    # 6. Enviar al navegador como descarga
+    return send_file(buffer, as_attachment=True, download_name="reporte_gnb.pdf", mimetype='application/pdf')
 # --- 5. ARRANQUE ---
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
