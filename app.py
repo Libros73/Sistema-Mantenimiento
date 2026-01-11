@@ -107,6 +107,53 @@ def agregar_equipo():
     except Exception as e:
         db.session.rollback() # Si falla (ej: serial repetido), cancelamos
         return jsonify({"mensaje": "Error: El serial probablemente ya existe"}), 400
+    
+    # RUTA PARA EDITAR EQUIPO (PUT)
+@app.route('/api/equipos/<int:id>', methods=['PUT'])
+def actualizar_equipo(id):
+    # 1. Buscar el equipo por ID
+    equipo = Equipo.query.get(id)
+    if not equipo:
+        return jsonify({"mensaje": "Equipo no encontrado"}), 404
+
+    # 2. Recibir los datos nuevos
+    datos = request.json
+
+    # 3. Sobrescribir propiedades (Update)
+    equipo.nombre = datos['nombre']
+    equipo.tipo = datos['tipo']
+    equipo.serial = datos['serial']
+    equipo.ubicacion = datos['ubicacion']
+    equipo.observaciones = datos.get('observaciones', '')
+    
+    # IMPORTANTE: Si quisieras cambiar el estado a "Falla", aquí lo harías
+    # Por ahora asumimos que el estado se maneja igual, o podrías recibirlo del form.
+    if 'estado' in datos:
+        equipo.estado = datos['estado']
+
+    # 4. Guardar cambios (Commit)
+    try:
+        db.session.commit()
+        return jsonify({"mensaje": "Equipo actualizado correctamente"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"mensaje": "Error al actualizar"}), 500
+    # RUTA PARA ELIMINAR EQUIPO (DELETE)
+@app.route('/api/equipos/<int:id>', methods=['DELETE'])
+def eliminar_equipo(id):
+    # 1. Buscar
+    equipo = Equipo.query.get(id)
+    if not equipo:
+        return jsonify({"mensaje": "Equipo no encontrado"}), 404
+
+    # 2. Eliminar y Confirmar
+    try:
+        db.session.delete(equipo)
+        db.session.commit()
+        return jsonify({"mensaje": "Equipo eliminado correctamente"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"mensaje": "Error al eliminar"}), 500
 # --- 5. ARRANQUE ---
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

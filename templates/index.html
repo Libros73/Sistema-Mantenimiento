@@ -56,8 +56,10 @@
     </small>
 </td>
                         <td>
-                            <button class="btn-small">✏️</button>
-                            <button class="btn-small btn-danger">🗑️</button>
+                            <button class="btn-small"
+                            onclick="editarEquipo({{ equipo.id }}, '{{ equipo.nombre }}', '{{ equipo.tipo }}', '{{ equipo.serial }}', '{{ equipo.ubicacion }}', '{{ equipo.observaciones }}')">
+                            ✏️</button>
+                            <button class="btn-small btn-danger" onclick="eliminarEquipo({{ equipo.id }})">🗑️</button>
                         </td>
                     </tr>
                     {% else %}
@@ -115,12 +117,71 @@
 
     <script>
         const modal = document.getElementById('modalAgregar');
+        // CONCEPTO CLAVE: Variable de Estado
+        // Si es null = Modo Crear. Si tiene número = Modo Editar.
+        let idEnEdicion = null; 
 
-        // Funciones para abrir/cerrar
-        function abrirModal() { modal.style.display = 'flex'; }
-        function cerrarModal() { modal.style.display = 'none'; }
+        // Abrir Modal Limpio (Para crear)
+        function abrirModal() { 
+            limpiarFormulario(); // Siempre limpiar antes de abrir
+            modal.style.display = 'flex'; 
+        }
 
-        // Función para ENVIAR datos a Python
+        // Cerrar Modal
+        function cerrarModal() { 
+            modal.style.display = 'none'; 
+            limpiarFormulario();
+        }
+
+        // --- LÓGICA DE EDICIÓN ---
+        // Esta función se llama al dar click en el Lápiz ✏️
+        // Recibe los datos actuales de la fila para rellenar el formulario
+        function editarEquipo(id, nombre, tipo, serial, ubicacion, observaciones) {
+            idEnEdicion = id; // Cambiamos el estado: ¡Estamos Editando!
+            
+            // Llenamos los campos (Data Binding manual)
+            document.getElementById('inpNombre').value = nombre;
+            document.getElementById('inpTipo').value = tipo;
+            document.getElementById('inpSerial').value = serial;
+            document.getElementById('inpUbicacion').value = ubicacion;
+            document.getElementById('inpObservaciones').value = observaciones;
+
+            // Cambiamos el texto del botón para dar feedback visual
+            document.querySelector('.btn-primary').innerText = "Actualizar Equipo";
+            
+            modal.style.display = 'flex';
+        }
+
+        function limpiarFormulario() {
+            idEnEdicion = null; // Reset del estado
+            document.getElementById('inpNombre').value = "";
+            document.getElementById('inpTipo').value = "Sensor Humo"; // Default
+            document.getElementById('inpSerial').value = "";
+            document.getElementById('inpUbicacion').value = "";
+            document.getElementById('inpObservaciones').value = "";
+            document.querySelector('.btn-primary').innerText = "Guardar Equipo";
+        
+        }
+        // --- LÓGICA DE BORRADO ---
+        function eliminarEquipo(id) {
+            // 1. Confirmación de Seguridad (Vital en ingeniería)
+            if(!confirm("¿Estás seguro de que quieres eliminar este equipo del inventario?")) {
+                return; // Si dice que no, no hacemos nada
+            }
+
+            // 2. Petición al Backend
+            fetch('/api/equipos/' + id, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.mensaje);
+                location.reload(); // Recargar para ver que desapareció
+            })
+            .catch(error => console.error('Error:', error));
+        }
+
+        // --- CEREBRO PRINCIPAL ---
         function guardarEquipo() {
             const datos = {
                 nombre: document.getElementById('inpNombre').value,
@@ -130,22 +191,31 @@
                 observaciones: document.getElementById('inpObservaciones').value
             };
 
-            // Validación rápida
             if(!datos.nombre || !datos.serial) {
-                alert("⚠️ Por favor completa Nombre y Serial.");
+                alert("⚠️ Completa Nombre y Serial.");
                 return;
             }
 
-            // Petición al Backend
-            fetch('/api/equipos', {
-                method: 'POST',
+            // DECISIÓN DE INGENIERÍA:
+            // ¿Hacemos POST (Crear) o PUT (Actualizar)?
+            let url = '/api/equipos';
+            let metodo = 'POST';
+
+            if (idEnEdicion !== null) {
+                // Si hay ID, cambiamos la estrategia
+                url = '/api/equipos/' + idEnEdicion;
+                metodo = 'PUT';
+            }
+
+            fetch(url, {
+                method: metodo,
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(datos)
             })
             .then(response => response.json())
             .then(data => {
                 alert(data.mensaje);
-                location.reload(); // Recargar página para ver el nuevo equipo
+                location.reload(); 
             })
             .catch(error => console.error('Error:', error));
         }
