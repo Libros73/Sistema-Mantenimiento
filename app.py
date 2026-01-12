@@ -8,6 +8,8 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
 import io
 from flask import send_file
+import qrcode
+from reportlab.lib.utils import ImageReader
 
 # --- 1. CONFIGURACIÓN ---
 app = Flask(__name__)
@@ -162,68 +164,77 @@ def eliminar_equipo(id):
         return jsonify({"mensaje": "Error al eliminar"}), 500
     
 # RUTA PARA GENERAR PDF
+# --- RUTA GENERADOR PDF CON QR ---
 @app.route('/exportar-pdf')
 def exportar_pdf():
-    # 1. Crear un buffer en memoria (como un archivo virtual)
     buffer = io.BytesIO()
-    
-    # 2. Crear el Lienzo (Canvas) tamaño Carta
     c = canvas.Canvas(buffer, pagesize=letter)
-    c.setTitle("Reporte de Mantenimiento")
+    c.setTitle("Inventario con QR")
 
-    # 3. Dibujar el Encabezado
-    # (Coordenadas X, Y): En PDF, (0,0) es la esquina INFERIOR izquierda.
+    # ENCABEZADO GENÉRICO
     c.setFont("Helvetica-Bold", 18)
-    c.drawString(50, 750, "Cliente Confidencial - Torre A - Reporte de Activos")
-    
+    c.drawString(50, 750, "Edificio Corporativo - Torre A")
     c.setFont("Helvetica", 12)
-    c.drawString(50, 730, "Sistema de Gestión de Mantenimiento | Bosch/Fike")
-    
-    # Línea separadora
+    c.drawString(50, 730, "Etiquetas de Activos y Mantenimiento")
     c.line(50, 720, 550, 720)
 
-    # 4. Dibujar los Equipos (Iterar la Base de Datos)
-    y = 690 # Altura inicial para el primer equipo
+    y = 670 
     equipos = Equipo.query.all()
 
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(50, y, "ID")
-    c.drawString(100, y, "Equipo")
-    c.drawString(280, y, "Serial")
-    c.drawString(380, y, "Ubicación")
-    c.drawString(500, y, "Estado")
-    
-    y -= 20 # Bajamos un renglón
-    c.setFont("Helvetica", 10)
-
     for equipo in equipos:
-        # Si se acaba la hoja, creamos una nueva (lógica de paginación básica)
-        if y < 50:
+        if y < 150:
             c.showPage()
-            y = 750
+            y = 700
+
+        # DATOS DEL EQUIPO
+        # Forzamos la cadena a UTF-8 explícitamente si fuera necesario, 
+        # pero la librería qrcode suele manejarlo bien si instanciamos el objeto.
+        contenido_qr = f"ID:{equipo.id}\nSN:{equipo.serial}\n{equipo.nombre}"
         
-        c.drawString(50, y, str(equipo.id))
-        c.drawString(100, y, equipo.nombre[:30]) # Cortamos si es muy largo
-        c.drawString(280, y, equipo.serial)
-        c.drawString(380, y, equipo.ubicacion[:20])
+        # --- CORRECCIÓN DE ENCODING ---
+        # Creamos una instancia controlada del QR
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=2, # Borde más delgado
+        )
+        # Agregamos los datos. La librería detectará automáticamente 
+        # que hay caracteres especiales y usará el modo Byte (UTF-8)
+        qr.add_data(contenido_qr)
+        qr.make(fit=True)
+        img_qr = qr.make_image(fill_color="black", back_color="white")
+        # ------------------------------
+
+        # DIBUJAR EL QR
+        qr_buffer = io.BytesIO()
+        img_qr.save(qr_buffer, format="PNG")
+        qr_buffer.seek(0)
+        c.drawImage(ImageReader(qr_buffer), 50, y, width=60, height=60)
+
+        # DIBUJAR LOS TEXTOS
+        c.setFont("Helvetica-Bold", 12)
+        c.drawString(130, y + 45, f"Equipo: {equipo.nombre}")
         
-        # Color condicional: Rojo si está en Falla
+        c.setFont("Helvetica", 10)
+        c.drawString(130, y + 30, f"Serial: {equipo.serial}")
+        c.drawString(130, y + 15, f"Ubicación: {equipo.ubicacion}")
+        
         if equipo.estado == "Falla":
             c.setFillColor(colors.red)
         else:
-            c.setFillColor(colors.black)
-            
-        c.drawString(500, y, equipo.estado)
-        c.setFillColor(colors.black) # Resetear color
-        
-        y -= 20 # Siguiente renglón
+            c.setFillColor(colors.green)
+        c.drawString(400, y + 30, f"Estado: {equipo.estado}")
+        c.setFillColor(colors.black) 
 
-    # 5. Guardar y Cerrar
+        c.setStrokeColor(colors.lightgrey)
+        c.line(50, y - 10, 550, y - 10)
+
+        y -= 80 
+
     c.save()
     buffer.seek(0)
-
-    # 6. Enviar al navegador como descarga
-    return send_file(buffer, as_attachment=True, download_name="reporte_gnb.pdf", mimetype='application/pdf')
+    return send_file(buffer, as_attachment=True, download_name="activos_qr.pdf", mimetype='application/pdf')
 # --- 5. ARRANQUE ---
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
