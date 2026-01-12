@@ -169,7 +169,7 @@ def exportar_pdf():
     
     # 2. Crear el Lienzo (Canvas) tamaño Carta
     c = canvas.Canvas(buffer, pagesize=letter)
-    c.setTitle("Reporte de Mantenimiento GNB")
+    c.setTitle("Reporte de Mantenimiento")
 
     # 3. Dibujar el Encabezado
     # (Coordenadas X, Y): En PDF, (0,0) es la esquina INFERIOR izquierda.
