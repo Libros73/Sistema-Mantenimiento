@@ -174,7 +174,7 @@ def exportar_pdf():
     # 3. Dibujar el Encabezado
     # (Coordenadas X, Y): En PDF, (0,0) es la esquina INFERIOR izquierda.
     c.setFont("Helvetica-Bold", 18)
-    c.drawString(50, 750, "GNB Sudameris - Reporte de Activos")
+    c.drawString(50, 750, "Cliente Confidencial - Torre A - Reporte de Activos")
     
     c.setFont("Helvetica", 12)
     c.drawString(50, 730, "Sistema de Gestión de Mantenimiento | Bosch/Fike")
