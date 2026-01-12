@@ -178,7 +178,7 @@ def exportar_pdf():
     c.drawString(50, 730, "Etiquetas de Activos y Mantenimiento")
     c.line(50, 720, 550, 720)
 
-    y = 670 
+    y = 650 
     equipos = Equipo.query.all()
 
     for equipo in equipos:
